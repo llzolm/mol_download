@@ -313,8 +313,7 @@
         }
 
         startBtn.addEventListener('click', startDownload);
-
-        async function startDownload() {
+               async function startDownload() {
             if (isDownloading) return;
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
@@ -340,18 +339,18 @@
                 const searchData = await r.json();
                 
                 const valid = searchData.results.filter(r => r.status === 'new');
-                const dupData = searchData.duplicates || {};
-                const dup = Object.entries(dupData);
-                if (dup.length) duplicateCount.textContent = dup.reduce((s, [, a]) => s + a.length, 0);
+                addLog('info', `CID搜索完成: 有效 ${valid.length}`);
 
-                addLog('info', `CID搜索完成: 有效 ${valid.length}, 未找到 ${searchData.results.filter(r => r.status === 'not_found').length}`);
-
-                if (valid.length > 0) {
+                let batch = 0;
+                while (true) {
                     const molR = await fetch(API + '/batch-download', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ compounds: valid.map(r => ({ name: r.name, cid: r.cid })) })
+                        body: JSON.stringify({ compounds: valid, batch: batch })
                     });
+                    
+                    if (!molR.ok) break;
+                    
                     const molData = await molR.json();
                     molData.results.forEach(r => {
                         if (r.success) {
@@ -363,6 +362,10 @@
                             addLog('failed', '✗ ' + r.name);
                         }
                     });
+                    
+                    if (!molData.has_more) break;
+                    batch++;
+                    addLog('info', `继续下载下一批...`);
                 }
             } catch (e) { addLog('failed', '请求错误: ' + e.message); }
 
@@ -372,7 +375,6 @@
             downloadBtn.disabled = downloadResults.length === 0;
             isDownloading = false;
         }
-
         downloadBtn.addEventListener('click', async () => {
             if (downloadResults.length === 0) return;
             const zip = new JSZip();
