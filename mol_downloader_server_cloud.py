@@ -8,7 +8,7 @@ import os
 import requests
 import re
 import time
-
+CORS(app)
 app = Flask(__name__)
 CORS(app))
 
