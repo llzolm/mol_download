@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MOL文件批量下载工具</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            padding: 20px;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 25px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+        }
+        h1 {
+            font-size: 2em;
+            background: linear-gradient(135deg, #00d9ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle { color: #888; margin-top: 10px; }
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .card-title {
+            font-size: 1.1em;
+            margin-bottom: 15px;
+            color: #00d9ff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .card-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: linear-gradient(180deg, #00d9ff, #00ff88);
+            border-radius: 2px;
+        }
+        .instructions {
+            background: rgba(255, 152, 0, 0.1);
+            border: 1px solid rgba(255, 152, 0, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .instructions h3 { color: #ff9800; margin-bottom: 15px; }
+        .instructions ol { margin-left: 20px; line-height: 1.8; }
+        .instructions code {
+            background: rgba(0, 217, 255, 0.2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: #00d9ff;
+        }
+        .server-info {
+            background: rgba(0, 255, 136, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .server-info.success { border: 1px solid rgba(0, 255, 136, 0.3); }
+        .server-info.error { background: rgba(255, 100, 100, 0.1); border: 1px solid rgba(255, 100, 100, 0.3); }
+        .upload-zone {
+            border: 2px dashed rgba(0, 217, 255, 0.5);
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .upload-zone:hover { border-color: #00d9ff; background: rgba(0, 217, 255, 0.05); }
+        .upload-zone.dragover { border-color: #00ff88; }
+        .upload-icon { font-size: 2.5em; margin-bottom: 10px; }
+        .upload-text { color: #aaa; }
+        #fileInput { display: none; }
+        .file-info { display: none; margin-top: 15px; padding: 12px; background: rgba(0, 255, 136, 0.1); border-radius: 10px; }
+        select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 1em;
+            margin-top: 15px;
+        }
+        .preview-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9em; }
+        .preview-table th, .preview-table td { padding: 10px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+        .preview-table th { background: rgba(0, 217, 255, 0.1); color: #00d9ff; }
+        .btn-container { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-primary { background: linear-gradient(135deg, #00d9ff, #00ff88); color: #1a1a2e; }
+        .btn-primary:hover { transform: translateY(-2px); }
+        .btn-primary:disabled { background: #444; color: #888; cursor: not-allowed; }
+        .progress-section { display: none; }
+        .progress-section.show { display: block; }
+        .progress-bar { background: rgba(255, 255, 255, 0.1); border-radius: 10px; height: 25px; overflow: hidden; margin-top: 15px; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #00d9ff, #00ff88); border-radius: 10px; transition: width 0.3s; }
+        .progress-text { text-align: center; margin-top: 10px; color: #888; }
+        .log-section { max-height: 200px; overflow-y: auto; margin-top: 15px; background: rgba(0, 0, 0, 0.3); border-radius: 10px; padding: 12px; font-size: 0.85em; }
+        .log-item { padding: 6px 10px; margin-bottom: 4px; border-radius: 5px; }
+        .log-item.success { background: rgba(0, 255, 136, 0.1); border-left: 3px solid #00ff88; }
+        .log-item.failed { background: rgba(255, 100, 100, 0.1); border-left: 3px solid #ff6464; }
+        .log-item.skip { background: rgba(255, 193, 7, 0.1); border-left: 3px solid #ffc107; }
+        .stats { display: flex; justify-content: center; gap: 30px; margin-top: 15px; }
+        .stat { text-align: center; }
+        .stat-value { font-size: 1.8em; font-weight: 700; }
+        .stat-value.s { color: #00ff88; }
+        .stat-value.f { color: #ff6464; }
+        .stat-value.d { color: #ff9800; }
+        .stat-label { font-size: 0.85em; color: #888; }
+        footer { text-align: center; margin-top: 30px; color: #666; font-size: 0.85em; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>MOL文件批量下载工具</h1>
+            <p class="subtitle">数据来源: PubChem | 自动去重 | 清理SDF元数据</p>
+        </header>
+
+        <div class="instructions">
+            <h3>使用说明</h3>
+            <ol>
+                <li>上传Excel文件（支持.xlsx, .xls, .csv格式）</li>
+                <li>选择包含化合物名称的列</li>
+                <li>点击开始下载，自动从PubChem获取MOL文件</li>
+                <li>下载完成后点击"下载ZIP"保存文件</li>
+            </ol>
+        </div>
+
+        <div class="server-info" id="serverStatus">
+            正在检查后端服务...
+        </div>
+
+        <div class="card">
+            <div class="card-title">上传化合物列表文件</div>
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-icon">📄</div>
+                <div class="upload-text">拖拽Excel文件到此处或点击选择</div>
+            </div>
+            <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+
+            <div class="file-info" id="fileInfo">
+                <strong id="fileName"></strong>
+                <span id="fileStats"></span>
+            </div>
+
+            <div id="columnSelector" style="display:none;">
+                <label style="color:#888;">选择化合物名称列：</label>
+                <select id="columnSelect"></select>
+            </div>
+
+            <div class="btn-container" id="actionButtons" style="display:none;">
+                <button class="btn btn-primary" id="startBtn">▶ 开始下载</button>
+            </div>
+        </div>
+
+        <div class="card progress-section" id="progressSection">
+            <div class="card-title">下载进度</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width:0%"></div>
+            </div>
+            <div class="progress-text" id="progressText">准备中...</div>
+            <div class="log-section" id="logSection"></div>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-value s" id="successCount">0</div>
+                    <div class="stat-label">成功</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value f" id="failedCount">0</div>
+                    <div class="stat-label">失败</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value d" id="duplicateCount">0</div>
+                    <div class="stat-label">重复跳过</div>
+                </div>
+            </div>
+            <div class="btn-container">
+                <button class="btn btn-primary" id="downloadBtn" disabled>📥 下载ZIP</button>
+            </div>
+        </div>
+
+        <footer>
+            <p>云端部署版本 | 无需安装Python</p>
+        </footer>
+    </div>
+
+    <script>
+        // 自动检测API地址 - 云端部署时使用相对路径
+        const API = '/api';
+        let workbook = null;
+        let selectedColumn = 0;
+        let downloadResults = [];
+        let isDownloading = false;
+
+        const serverStatus = document.getElementById('serverStatus');
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileStats = document.getElementById('fileStats');
+        const columnSelector = document.getElementById('columnSelector');
+        const columnSelect = document.getElementById('columnSelect');
+        const actionButtons = document.getElementById('actionButtons');
+        const startBtn = document.getElementById('startBtn');
+        const progressSection = document.getElementById('progressSection');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const logSection = document.getElementById('logSection');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const successCount = document.getElementById('successCount');
+        const failedCount = document.getElementById('failedCount');
+        const duplicateCount = document.getElementById('duplicateCount');
+
+        // 检查后端
+        async function checkBackend() {
+            try {
+                const r = await fetch(API + '/test');
+                if (r.ok) {
+                    serverStatus.className = 'server-info success';
+                    serverStatus.textContent = '✓ 后端服务已连接';
+                    return true;
+                }
+            } catch (e) {}
+            serverStatus.className = 'server-info error';
+            serverStatus.textContent = '✗ 后端服务未启动，请检查服务状态';
+            return false;
+        }
+
+        // 日志
+        function addLog(type, msg) {
+            const div = document.createElement('div');
+            div.className = 'log-item ' + type;
+            div.textContent = msg;
+            logSection.insertBefore(div, logSection.firstChild);
+        }
+
+        // 文件处理
+        uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+        uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+        uploadZone.addEventListener('drop', e => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+        });
+        uploadZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                fileName.textContent = '📄 ' + file.name;
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                fileStats.textContent = ` | ${data.length - 1} 行`;
+                fileInfo.style.display = 'block';
+                populateColumns(data);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function populateColumns(data) {
+            const first = data[0] || [];
+            columnSelect.innerHTML = '';
+            let englishColIndex = -1;
+            
+            first.forEach((col, i) => {
+                if (col && String(col).trim()) {
+                    const colName = String(col).toLowerCase();
+                    if (colName.includes('english') || colName.includes('英文')) {
+                        englishColIndex = i;
+                    }
+                    const opt = document.createElement('option');
+                    opt.value = i;
+                    opt.textContent = col;
+                    columnSelect.appendChild(opt);
+                }
+            });
+            
+            if (englishColIndex >= 0) {
+                columnSelect.selectedIndex = englishColIndex;
+            }
+            
+            columnSelector.style.display = 'block';
+            actionButtons.style.display = 'flex';
+        }
+
+        startBtn.addEventListener('click', startDownload);
+
+        async function startDownload() {
+            if (isDownloading) return;
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+            const names = data.slice(1).map(r => r[selectedColumn]).filter(n => n && String(n).trim()).map(n => String(n).trim());
+
+            if (names.length === 0) { alert('未找到化合物'); return; }
+
+            isDownloading = true;
+            downloadResults = [];
+            progressSection.classList.add('show');
+            logSection.innerHTML = '';
+            successCount.textContent = '0';
+            failedCount.textContent = '0';
+            duplicateCount.textContent = '0';
+            addLog('info', `开始下载 ${names.length} 个化合物...`);
+
+            try {
+                const r = await fetch(API + '/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ names })
+                });
+                const searchData = await r.json();
+                
+                const valid = searchData.results.filter(r => r.status === 'new');
+                const dupData = searchData.duplicates || {};
+                const dup = Object.entries(dupData);
+                if (dup.length) duplicateCount.textContent = dup.reduce((s, [, a]) => s + a.length, 0);
+
+                addLog('info', `CID搜索完成: 有效 ${valid.length}, 未找到 ${searchData.results.filter(r => r.status === 'not_found').length}`);
+
+                if (valid.length > 0) {
+                    const molR = await fetch(API + '/batch-download', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ compounds: valid.map(r => ({ name: r.name, cid: r.cid })) })
+                    });
+                    const molData = await molR.json();
+                    molData.results.forEach(r => {
+                        if (r.success) {
+                            downloadResults.push(r);
+                            successCount.textContent = parseInt(successCount.textContent) + 1;
+                            addLog('success', '✓ ' + r.name);
+                        } else {
+                            failedCount.textContent = parseInt(failedCount.textContent) + 1;
+                            addLog('failed', '✗ ' + r.name);
+                        }
+                    });
+                }
+            } catch (e) { addLog('failed', '请求错误: ' + e.message); }
+
+            progressFill.style.width = '100%';
+            progressText.textContent = '下载完成!';
+            startBtn.disabled = false;
+            downloadBtn.disabled = downloadResults.length === 0;
+            isDownloading = false;
+        }
+
+        downloadBtn.addEventListener('click', async () => {
+            if (downloadResults.length === 0) return;
+            const zip = new JSZip();
+            downloadResults.forEach(r => zip.file(r.filename, r.mol_content));
+            const blob = await zip.generateAsync({ type: 'blob' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `MOL文件_${new Date().toISOString().slice(0, 10)}.zip`;
+            link.click();
+        });
+
+        checkBackend();
+    </script>
+</body>
+</html>
